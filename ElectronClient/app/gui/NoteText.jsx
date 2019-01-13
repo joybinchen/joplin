@@ -35,6 +35,8 @@ const ResourceFetcher = require('lib/services/ResourceFetcher');
 const { toSystemSlashes, safeFilename } = require('lib/path-utils');
 const { clipboard } = require('electron');
 const SearchEngine = require('lib/services/SearchEngine');
+const { isUri } = require('valid-url');
+const { WebClipper } = require('gui/WebClipper.min.js');
 
 require('brace/mode/markdown');
 // https://ace.c9.io/build/kitchen-sink.html
@@ -1633,6 +1635,26 @@ class NoteTextComponent extends React.Component {
 
 		const titleBarDate = <span style={Object.assign({}, theme.textStyle, {color: theme.colorFaded})}>{time.formatMsToLocal(note.user_updated_time)}</span>
 
+		const clippingHref = isUri(note.body) ? note.body : isUri(note.title) ? note.title : null;
+		const clipper = !clippingHref ? <div style={{height: 200}}/> :
+		<WebClipper
+			style={viewerStyle}
+			src={isUri(note.body) ? note.body : note.title}
+			updateMdClipping={(note) => {
+				if (note.source_url === 'about:blank') return;
+				const newNote = Object.assign({}, this.state.note);
+				newNote.body = note.source_url === clippingHref ? note.body
+					: ('[origin_url](' + clippingHref + ')\n' + note.body);
+				newNote.title = note.title;
+				newNote.source_url = note.source_url;
+				this.setState({
+					note: newNote,
+				})
+				this.scheduleSave();
+				this.updateHtml(newNote.body);
+			}
+			}
+		/>
 		const viewer =  <webview
 			style={viewerStyle}
 			preload="gui/note-viewer/preload.js"
@@ -1714,6 +1736,7 @@ class NoteTextComponent extends React.Component {
 				{ viewer }
 				<div style={{clear:'both'}}/>
 				{ noteSearchBarComp }
+				{ clipper }
 			</div>
 		);
 	}
