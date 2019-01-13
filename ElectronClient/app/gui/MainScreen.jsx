@@ -291,7 +291,7 @@ class MainScreenComponent extends React.Component {
 		const rowHeight = height - theme.headerHeight - (messageBoxVisible ? this.styles_.messageBox.height : 0);
 
 		this.styles_.sideBar = {
-			width: Math.floor(layoutUtils.size(width * .2, 150, 300)),
+			width: Math.floor(layoutUtils.size(width * .2, 100, 150)),
 			height: rowHeight,
 			display: 'inline-block',
 			verticalAlign: 'top',
@@ -303,7 +303,7 @@ class MainScreenComponent extends React.Component {
 		}
 
 		this.styles_.noteList = {
-			width: Math.floor(layoutUtils.size(width * .2, 150, 300)),
+			width: Math.floor(layoutUtils.size(width * .3, 250, 500)),
 			height: rowHeight,
 			display: 'inline-block',
 			verticalAlign: 'top',
