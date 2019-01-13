@@ -243,10 +243,16 @@
 		browser_.runtime.sendMessage(response);
 	}
 
-	browser_.runtime.onMessage.addListener((command) => {
-		console.info('jopext: Got command:', command);
+	if (browser_ && browser_.runtime) {
+		browser_.runtime.onMessage.addListener((command) => {
+			console.info('jopext: Got command:', command);
 
-		execCommand(command);
-	});
+			execCommand(command);
+		});
+	} else {
+		window.addEventListener('message', (event, data) => {
+			console.log('window on message', event, data);
+		});
+	}
 
 })();

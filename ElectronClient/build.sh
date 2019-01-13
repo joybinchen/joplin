@@ -3,7 +3,8 @@
 ROOT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 BUILD_DIR="$ROOT_DIR/app"
 
-rsync -a --delete "$ROOT_DIR/../ReactNativeClient/lib/" "$BUILD_DIR/lib/"
+rsync -a --delete --exclude "screens" "$ROOT_DIR/../ReactNativeClient/lib/" "$BUILD_DIR/lib/"
+rsync -a --delete "$ROOT_DIR/../Clipper/joplin-webclipper/content_scripts/" "$BUILD_DIR/content_scripts/"
 
 cd "$BUILD_DIR"
 npm run compile
