@@ -85,49 +85,6 @@
         return clippedContentResponse(article.title, article.body);
     };
 
-    /*
-    const commandState = {}
-    window.addEventListener('message', (event) => {
-        if (event.source === window) {
-            const data = event.data ? event.data : {};
-            if (data.target === 'webclipper') {
-                const state = commandState[data.iid];
-                if (data.result) {
-                    state.result = data.result;
-                    state.done = true;
-                } else if (data.reason) {
-                    state.reason = data.result;
-                    state.error = true;
-                }
-            }
-        }
-    });
-
-    const prepareCommandResponse = (command) => {
-        return new Promise((resolve, reject) => {
-			const state = {done: false, error: false};
-			const iid = setInterval(() => {
-				if (state.done) {
-					clearInterval(iid);
-					delete commandState[iid];
-					resolve(state.result);
-				} else if (state.error) {
-					clearInterval(iid);
-                    delete commandState[iid];
-					reject(state.reason);
-				}
-			});
-            commandState[iid] = state;
-            console.log('prepareCommandResponse', command);
-            window.postMessage({
-                target: 'readability',
-                command: command,
-                iid: iid
-            }, location.origin);
-		});
-    };
-    */
-
     const clipSimplifiedPage = () => {
         prepareCommandResponse({
             name: "simplifiedPageHtml"
