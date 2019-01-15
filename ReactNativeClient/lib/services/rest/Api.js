@@ -38,6 +38,7 @@ class Api {
 	constructor(token = null) {
 		this.token_ = token;
 		this.logger_ = new Logger();
+		this.content_scripts_ = {};
 	}
 
 	get token() {
@@ -361,6 +362,19 @@ class Api {
 		return this.defaultAction_(BaseModel.TYPE_NOTE, request, id, link);
 	}
 
+	async action_(request, id = null, link = null) {
+		if (request.method === 'GET') {
+			return 'JoplinClipperServer';
+		}
+		throw new ErrorMethodNotAllowed();
+	}
+
+	async action_content_scripts(request, id = null, link = null) {
+		if (request.method === 'GET') {
+			return this.getContentScript(id);
+		}
+		throw new ErrorMethodNotAllowed();
+	}
 
 
 
@@ -368,6 +382,27 @@ class Api {
 	// ========================================================================================================================
 	// UTILIY FUNCTIONS
 	// ========================================================================================================================
+
+	async getContentScript(name) {
+		if (!(name in this.content_scripts_)) {
+			const path = require('path');
+			const resourcePath = path.join(__dirname, '..', '..', 'content_scripts', name);
+			if (shim.fsDriver().exists(resourcePath)) {
+				this.content_scripts_[name] = await shim.fsDriver().readFile(resourcePath, 'Buffer');
+			} else {
+				this.content_scripts_[name] = undefined;
+			}
+		}
+
+		if (this.content_scripts_[name] !== undefined) {
+			const response = new ApiResponse();
+			response.type = 'attachment';
+			response.contentType = 'text/javascript; charset=UTF-8';
+			response.body = this.content_scripts_[name];
+			return response;
+		}
+		return ErrorMethodNotAllowed();
+	}
 
 	htmlToMdParser() {
 		if (this.htmlToMdParser_) return this.htmlToMdParser_;
