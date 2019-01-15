@@ -72,7 +72,15 @@ class Application extends BaseApplication {
 			}
 		}
 		if (action.type === 'NOTE_UPDATE_ONE') {
-			reg.scheduleSync(1000);
+			const isUrl = require('valid-url').isWebUri;
+			if (action.note && action.note.title && isUrl(action.note.title)) {
+				const note = Object.assign({}, action.note);
+				note.body = note.title;
+				const WebClipService = require('lib/services/WebClipService.js')
+				WebClipService.instance().queueWebClipTask(note);
+			} else {
+				reg.scheduleSync(1000);
+			}
 		}
 		return result;
 	}
@@ -409,7 +417,7 @@ class Application extends BaseApplication {
 			process.exit(1);
 		});
 
-		if (argv.length > 1 && argv[1].startsWith('--inspect-brk='))
+		if (argv.length > 1 && argv[1].startsWith('--inspect-brk'))
 			argv.splice(1, 1);
 
 		// If running inside a package, the command line, instead of being "node.exe <path> <flags>" is "joplin.exe <flags>" so

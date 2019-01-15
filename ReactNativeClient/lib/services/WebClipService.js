@@ -6,7 +6,6 @@ const BaseSyncTarget = require('lib/BaseSyncTarget');
 const { Logger } = require('lib/logger.js');
 const EventEmitter = require('events');
 const isUrl = require('valid-url').isWebUri;
-const HtmlToMd = require('lib/HtmlToMd');
 const markdownUtils = require('lib/markdownUtils');
 const Api = require('lib/services/rest/Api');
 const api = new Api(() => {
@@ -58,12 +57,6 @@ class WebClipService extends BaseService {
 		return this.clipper_;
 	}
 
-	htmlToMdParser() {
-		if (this.htmlToMdParser_) return this.htmlToMdParser_;
-		this.htmlToMdParser_ = new HtmlToMd();
-		return this.htmlToMdParser_;
-	}
-
 	queuedItemIndex_(noteId) {
 		for (let i = 0; i < this.fetchingItems_.length; i++) {
 			const item = this.fetchingItems_[i];
@@ -104,11 +97,7 @@ class WebClipService extends BaseService {
 		try {
 			const clipper = this.clipper();
 			const newNote = await clipper.clipSimplifiedPage(noteId, url);
-			const htmlToMdParser = this.htmlToMdParser();
-			const newBody = await htmlToMdParser.parse('<div>' + newNote.html + '</div>', {
-				baseUrl: newNote.base_url ? newNote.base_url : '',
-			});
-			const imageUrls = markdownUtils.extractImageUrls(newBody);
+			const imageUrls = markdownUtils.extractImageUrls(newNote.body);
 
 			this.logger().debug('clipHtml (' + noteId + '): Downloading images: ', imageUrls);
 
@@ -118,7 +107,7 @@ class WebClipService extends BaseService {
 
 			result = await api.createResourcesFromPaths_(result);
 			await api.removeTempFiles_(result);
-			const noteBody = api.replaceImageUrlsByResources_(newBody, result);
+			const noteBody = api.replaceImageUrlsByResources_(newNote.body, result);
 			Note.save({
 				id: noteId,
 				body: noteBody,
@@ -129,6 +118,12 @@ class WebClipService extends BaseService {
 			completeWebClipTask();
 		} catch(error) {
 			this.logger().error('WebClipService: Could not download note: ' + noteId, error);
+			Note.save({
+				id: noteId,
+				body: 'Failed to clip simplified page for url:\n' + url,
+				title: 'Failed to clip ' + url,
+				source_url: url,
+			});
 			completeWebClipTask();
 		}
 	}
