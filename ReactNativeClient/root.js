@@ -71,6 +71,7 @@ SyncTargetRegistry.addClass(SyncTargetFilesystem);
 const FsDriverRN = require('lib/fs-driver-rn.js').FsDriverRN;
 const DecryptionWorker = require('lib/services/DecryptionWorker');
 const EncryptionService = require('lib/services/EncryptionService');
+const isUrl = require('valid-url').isWebUri;
 
 let storeDispatch = function(action) {};
 
@@ -221,11 +222,14 @@ const appReducer = (state = appDefaultState, action) => {
 					}
 				}
 
-				if (action.routeName == 'Welcome') navHistory = [];
-
 				//reg.logger().info('Route: ' + currentRouteName + ' => ' + action.routeName);
 
 				newState = Object.assign({}, state);
+
+				if (action.routeName == 'Welcome') {
+					navHistory = [];
+					newState.showSideMenu = true;
+				}
 
 				if ('noteId' in action) {
 					newState.selectedNoteIds = action.noteId ? [action.noteId] : [];
@@ -560,23 +564,27 @@ class AppComponent extends React.Component {
 						parent_id: this.props.selectedFolderId
 					});
 
-					// This is a bit hacky, but the surest way to go to 
-					// the needed note. We go back one screen in case there's
-					// already a note open - if we don't do this, the dispatch
-					// below will do nothing (because routeName wouldn't change)
-					// Then we wait a bit for the state to be set correctly, and
-					// finally we go to the new note.
-					this.props.dispatch({
-						type: 'NAV_BACK',
-					});
-
-					setTimeout(() => {
+					if (isUrl(value)) {
+						BackHandler.exitApp();
+					} else {
+						// This is a bit hacky, but the surest way to go to
+						// the needed note. We go back one screen in case there's
+						// already a note open - if we don't do this, the dispatch
+						// below will do nothing (because routeName wouldn't change)
+						// Then we wait a bit for the state to be set correctly, and
+						// finally we go to the new note.
 						this.props.dispatch({
-							type: 'NAV_GO',
-							routeName: 'Note',
-							noteId: newNote.id,
+							type: 'NAV_BACK',
 						});
-					}, 5);
+
+						setTimeout(() => {
+							this.props.dispatch({
+								type: 'NAV_GO',
+								routeName: 'Note',
+								noteId: newNote.id,
+							});
+						}, 5);
+					}
 				}
 
 			} catch(e) {
@@ -607,11 +615,19 @@ class AppComponent extends React.Component {
 
 		if (this.props.showSideMenu) {
 			this.props.dispatch({ type: 'SIDE_MENU_CLOSE' });
-			return true;
+			if (this.props.historyCanGoBack) {
+				return true;
+			} else {
+				BackHandler.exitApp();
+				return false;
+			}
 		}
 
 		if (this.props.historyCanGoBack) {
 			this.props.dispatch({ type: 'NAV_BACK' });
+			return true;
+		} else if (!this.props.showSideMenu) {
+			this.props.dispatch({ type: 'SIDE_MENU_OPEN' });
 			return true;
 		}
 
