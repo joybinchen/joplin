@@ -102,8 +102,7 @@
         });
 
     };
-    window.onload = () => {setTimeout(clipSimplifiedPage, 1000)};
-    window.clipSimplifiedPage = clipSimplifiedPage;
+    setTimeout(clipSimplifiedPage, 3000);
     clipSimplifiedPage();
 
 })();

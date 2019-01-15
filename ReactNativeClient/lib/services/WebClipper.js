@@ -3,6 +3,7 @@ const { _ } = require('lib/locale.js');
 const BaseService = require('lib/services/BaseService');
 const url = require('url');
 const path = require('path');
+const HtmlToMd = require('lib/HtmlToMd');
 
 class WebClipper extends BaseService {
 
@@ -11,6 +12,7 @@ class WebClipper extends BaseService {
 		this.win_ = null;
 		this.browserDomReady = false;
 		this.loading_ = null;
+		this.htmlToMdParser_ = null;
 	}
 
 	webview() {
@@ -138,11 +140,32 @@ class WebClipper extends BaseService {
 		this.logger().debug("webclipper console.log: " + message);
 	}
 
-	clipHtml(event, args) {
-		const data = args && args.length ? args[0] : {};
+	htmlToMdParser() {
+		if (this.htmlToMdParser_ == null)
+			this.htmlToMdParser_ = new HtmlToMd();
+		return this.htmlToMdParser_;
+	}
+
+	async clipHtml(event, args) {
+		const data = args && args.length ? Object.assign({}, args[0]) : {};
 		try {
 			if (data.title && data.html) {
-				this.resolve(data);
+				const htmlToMdParser = this.htmlToMdParser();
+				data.body = await htmlToMdParser.parse(
+					'<div>' + data.html + '</div>',
+					{baseUrl: data.base_url ? data.base_url : '',}
+				);
+				if (data.body) {
+					this.logger().debug('clipHtml got md body ', data.body);
+					this.resolve(data);
+				} else if (this.loading_.first_try) {
+					// Got empty markdown with clipSimplifiedPage on dom-ready,
+					// Will try to clipSimpliedPage again a few seconds latter.
+					this.loading_.first_try = false;
+				} else {
+					// Got empty markdown with clipSimplifiedPage again! Just give up.
+					this.reject(Error('Web clipping failed with empty markdown'));
+				}
 			} else {
 				this.reject(Error('Web clipping failed without html'));
 			}
@@ -200,7 +223,7 @@ class WebClipper extends BaseService {
 					+ this.loading_.url + ' for ' + this.loading_.id));
 			});
 		}
-		this.loading_ = { id: id, url: url, };
+		this.loading_ = { id: id, url: url, first_try: true};
 
 		this.startWebview_(url);
 		return new Promise((resolve, reject) => {
