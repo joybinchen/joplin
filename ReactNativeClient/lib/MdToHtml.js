@@ -78,6 +78,16 @@ class MdToHtml {
 		return attrs;
 	}
 
+	notifyResourceLoaded(options) {
+		if (options.onResourceLoaded) {
+			const resources = this.loadedResources_;
+			for (let id in resources) {
+				if (Object.getOwnPropertyNames(resources[id]).length !== 0) return;
+			}
+			options.onResourceLoaded();
+		}
+	}
+
 	async loadResource(id, options) {
 		// Initially set to to an empty object to make
 		// it clear that it is being loaded. Otherwise
@@ -92,6 +102,7 @@ class MdToHtml {
 			// been downloaded from the sync target yet.
 			console.info('Cannot load resource: ' + id);
 			delete this.loadedResources_[id];
+			this.notifyResourceLoaded(options);
 			return;
 		}
 
@@ -100,12 +111,13 @@ class MdToHtml {
 		if (localState.fetch_status !== Resource.FETCH_STATUS_DONE) {
 			delete this.loadedResources_[id];
 			console.info('Resource not yet fetched: ' + id);
+			this.notifyResourceLoaded(options);
 			return;
 		}
 
 		this.loadedResources_[id] = resource;
 
-		if (options.onResourceLoaded) options.onResourceLoaded();
+		this.notifyResourceLoaded(options);
 	}
 
 	renderImage_(attrs, options) {

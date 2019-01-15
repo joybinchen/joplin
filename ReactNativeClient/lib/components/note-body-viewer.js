@@ -5,6 +5,7 @@ const Resource = require('lib/models/Resource.js');
 const Setting = require('lib/models/Setting.js');
 const { reg } = require('lib/registry.js');
 const MdToHtml = require('lib/MdToHtml.js');
+const isUri = require('valid-url').isUri;
 
 class NoteBodyViewer extends Component {
 
@@ -94,19 +95,20 @@ class NoteBodyViewer extends Component {
 			highlightedKeywords: this.props.highlightedKeywords,
 		};
 
-		let html = this.mdToHtml_.render(note ? note.body : '', this.props.webViewStyle, mdOptions);
-
+		let html = note ? note.body : '';
+		let noteBodyIsUrl = isUri(html);
+		if (!noteBodyIsUrl) {
 		html = `
 			<!DOCTYPE html>
 			<html>
 				<head>
-					
 				</head>
 				<body>
-					` + html + `
+					` + this.mdToHtml_.render(html, this.props.webViewStyle, mdOptions) + `
 				</body>
 			</html>
 		`;
+		}
 
 		let webViewStyle = {}
 		// On iOS, the onLoadEnd() event is never fired so always
@@ -135,7 +137,7 @@ class NoteBodyViewer extends Component {
 		// So we use scalesPageToFix=false on iOS along with that CSS rule.
 
 		// `baseUrl` is where the images will be loaded from. So images must use a path relative to resourceDir.
-		const source = {
+		const source = noteBodyIsUrl ? {uri: html,} : {
 			html: html,
 			baseUrl: 'file://' + Setting.value('resourceDir') + '/',
 		};
