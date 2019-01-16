@@ -472,7 +472,27 @@ class Api {
 			if (isDataUrl) {
 				await shim.imageFromDataUrl(url, imagePath);
 			} else {
-				await shim.fetchBlob(url, { path: imagePath });
+				const response = await shim.fetchBlob(url, { path: imagePath });
+				let content_type = response.headers['content-type'];
+				if (content_type) {
+					content_type = content_type.split(';')[0]
+				}
+
+				const imageMimeExtensions = {
+					'image/jpeg':	'.jpg',
+					'image/jpg':	'.jpg',
+					'image/gif':	'.gif',
+					'image/png':	'.png',
+					'image/svg+xml':'.svg',
+					'image/webp':	'.webp',
+				};
+				let normalExt = imageMimeExtensions[content_type];
+				if (normalExt && normalExt !== fileExt) {
+					let normalPath = imagePath.slice(0, -fileExt.length) + normalExt;
+					shim.fsDriver().move(imagePath, normalPath);
+					fileExt = normalExt;
+					imagePath = normalPath;
+				}
 			}
 			return imagePath;
 		} catch (error) {
