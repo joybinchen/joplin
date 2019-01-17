@@ -460,38 +460,43 @@ class Api {
 	async downloadImage_(url) {
 		const tempDir = Setting.value('tempDir');
 
+		const getFilenameWithRandomPart = (directory, name, ext) => {
+			const randomPart = md5(Math.random() + '_' + Date.now());
+			return directory + '/' + safeFilename(name) + '_' + randomPart.substr(0,10) + fileExt;
+		}
+
 		const isDataUrl = url && url.toLowerCase().indexOf('data:') === 0;
 
 		const name = isDataUrl ? md5(Math.random() + '_' + Date.now()) : filename(url);
 		let fileExt = isDataUrl ? mimeUtils.toFileExtension(mimeUtils.fromDataUrl(url)) : safeFileExtension(fileExtension(url).toLowerCase());
 		if (fileExt) fileExt = '.' + fileExt;
 		let imagePath = tempDir + '/' + safeFilename(name) + fileExt;
-		if (await shim.fsDriver().exists(imagePath)) imagePath = tempDir + '/' + safeFilename(name) + '_' + md5(Math.random() + '_' + Date.now()).substr(0,10) + fileExt;
+		if (await shim.fsDriver().exists(imagePath)) {
+			imagePath = getFilenameWithRandomPart(tempDir, name, fileExt);
+		}
 
 		try {
 			if (isDataUrl) {
 				await shim.imageFromDataUrl(url, imagePath);
 			} else {
 				const response = await shim.fetchBlob(url, { path: imagePath });
-				let content_type = response.headers['content-type'];
-				if (content_type) {
-					content_type = content_type.split(';')[0]
-				}
-
-				const imageMimeExtensions = {
-					'image/jpeg':	'.jpg',
-					'image/jpg':	'.jpg',
-					'image/gif':	'.gif',
-					'image/png':	'.png',
-					'image/svg+xml':'.svg',
-					'image/webp':	'.webp',
-				};
-				let normalExt = imageMimeExtensions[content_type];
-				if (normalExt && normalExt !== fileExt) {
-					let normalPath = imagePath.slice(0, -fileExt.length) + normalExt;
-					shim.fsDriver().move(imagePath, normalPath);
-					fileExt = normalExt;
-					imagePath = normalPath;
+				const contentType = response.headers['content-type'];
+				if (contentType) {
+					const mime = contentType.split(';')[0]
+					if (Resource.isSupportedImageMimeType(mime)) {
+						let ext = mimeUtils.toFileExtension(mime) || '';
+						if (ext) {
+							ext = '.' + ext;
+							if (ext !== fileExt) {
+								let newPath = tempDir + '/' + safeFilename(name) + ext;
+								if (await shim.fsDriver().exists(newPath)) {
+									newPath = getFilenameWithRandomPart(tempDir, name, ext);
+								}
+								await shim.fsDriver().move(imagePath, newPath);
+								imagePath = newPath;
+							}
+						}
+					}
 				}
 			}
 			return imagePath;
