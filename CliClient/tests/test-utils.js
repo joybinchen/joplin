@@ -1,4 +1,8 @@
 const fs = require('fs-extra');
+const enableServerDestroy = require('server-destroy');
+const querystring = require("querystring");
+const urlParser = require("url");
+const { shim } = require('lib/shim');
 const { JoplinDatabase } = require('lib/joplin-database.js');
 const { DatabaseDriverNode } = require('lib/database-driver-node.js');
 const BaseModel = require('lib/BaseModel.js');
@@ -314,4 +318,43 @@ function asyncTest(callback) {
 	}
 }
 
-module.exports = { setupDatabase, setupDatabaseAndSynchronizer, db, synchronizer, fileApi, sleep, clearDatabase, switchClient, syncTargetId, objectsEqual, checkThrowAsync, encryptionService, loadEncryptionMasterKey, fileContentEqual, decryptionWorker, asyncTest };
+async function setupHttpServer() {
+	const server = require('http').createServer();
+	enableServerDestroy(server);
+
+	let port = 27589;
+	for (; port < 27600; ++port) {
+		try { await server.listen(port, '127.0.0.1');
+		} catch (e) { continue; }
+		break;
+	}
+
+	server.on('request', async (request, response) => {
+		const url = urlParser.parse(request.url, true);
+		const splited = url.pathname.split('/')
+		const tail = url.pathname.split('/').slice(3).join('/');
+		// console.log('fetching', splited[1], splited[2], tail);
+		const filePath = __dirname + '/' + querystring.unescape(splited[1]);
+		const responseHeaders = querystring.decode(splited[2]);
+		const buffer = await shim.fsDriver().readFile(filePath, 'Buffer');
+		// console.log('response with', filePath, responseHeaders, buffer.length);
+		response.writeHead(200, responseHeaders);
+		response.end(buffer);
+	});
+
+	server.getUrl = (filePath, contentType='application/octet-stream', fileName=null, tail='some.meaningless', extraHeaders=null) => {
+		// console.log('getUrl', filePath, contentType, fileName, tail);
+		const escapedPath = querystring.escape(filePath);
+		// console.log('escapedPath', escapedPath);
+		const headers = Object.assign({}, extraHeaders);
+		if (contentType) headers['Content-Type'] = contentType;
+		if (fileName) headers['Content-Disposition'] = 'attachment; filename=' + fileName;
+		const encodedHeaders = querystring.stringify(headers);
+		const parts = ['http://127.0.0.1:' + port, escapedPath, encodedHeaders, tail];
+		return parts.join('/');
+	};
+
+	return server;
+};
+
+module.exports = { setupDatabase, setupDatabaseAndSynchronizer, db, synchronizer, fileApi, sleep, clearDatabase, switchClient, syncTargetId, objectsEqual, checkThrowAsync, encryptionService, loadEncryptionMasterKey, fileContentEqual, decryptionWorker, asyncTest, setupHttpServer };

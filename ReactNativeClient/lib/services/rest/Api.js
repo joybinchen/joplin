@@ -1,4 +1,3 @@
-const { ltrimSlashes } = require('lib/path-utils.js');
 const Folder = require('lib/models/Folder');
 const Note = require('lib/models/Note');
 const Tag = require('lib/models/Tag');
@@ -12,7 +11,7 @@ const { Logger } = require('lib/logger.js');
 const md5 = require('md5');
 const { shim } = require('lib/shim');
 const HtmlToMd = require('lib/HtmlToMd');
-const { fileExtension, safeFileExtension, safeFilename, filename } = require('lib/path-utils');
+const { fileExtension, safeFileExtension, safeFilename, filename, basename, dirname, ltrimSlashes } = require('lib/path-utils');
 const ApiResponse = require('lib/services/rest/ApiResponse');
 
 class ApiError extends Error {
@@ -457,13 +456,72 @@ class Api {
 		return await shim.attachFileToNote(note, tempFilePath);
 	}
 
+	adjustFilenameWithHeaders_(fileName, headers) {
+		const contentType = headers['content-type'];
+		let mime = contentType ? contentType.split(';')[0].trim() : '';
+		const mimeFromExt = mimeUtils.fromFileExtension(fileExtension(fileName))
+
+		// guest mime from original file extension for non-image mime
+		if (!mime || !mime.startsWith('image/')) {
+			if (mimeFromExt && Resource.isSupportedImageMimeType(mimeFromExt)) {
+				mime = mimeFromExt;
+			}
+		}
+
+		// try to get real filename from header content-disposition
+		const contentDisposition = headers['content-disposition'];
+		let attachName = null;
+		if (contentDisposition) {
+			const fields = contentDisposition.split(';');
+			for(let i = fields.length - 1; i >= 0; --i) {
+				let field = fields[i];
+				if (!field) continue;
+				field = field.trim();
+				if (field.startsWith('filename=')) {
+					attachName = field.slice(9)
+					if (attachName) {
+						attachName = basename(attachName);
+					}
+					break;
+				}
+			}
+		}
+
+		// use attachName only if it's supported image type.
+		// trust file extension in content-disposition over mime from content-type.
+		if (attachName) {
+			//console.log('got attach ' + attachName + ' on MIME ' + mime);
+			const mimeFromAttach = mimeUtils.fromFileExtension(fileExtension(attachName));
+			if (mimeFromAttach && (mimeFromAttach == mimeFromExt
+				|| Resource.isSupportedImageMimeType(mimeFromAttach)
+				|| !mime || !Resource.isSupportedImageMimeType(mime))) {
+				mime = mimeFromAttach;
+				fileName = attachName;
+			}
+		}
+
+		// adjust fileExtension for supported image mime
+		if (mime/* && Resource.isSupportedImageMimeType(mime) */) {
+			const fileExt = fileExtension(fileName);
+			const ext = mimeUtils.toFileExtension(mime) || '';
+			if (ext && ext !== fileExt) {
+				if (fileExt) {
+					return fileName.slice(0, -fileExt.length) + ext;
+				} else {
+					return fileName + '.' + ext;
+				}
+			}
+		}
+		return fileName;
+	}
+
+	randomNameWithExt_(hint, fileExt) {
+		const randomPart = md5(Math.random() + '_' + Date.now()).substr(0,10);
+		return safeFilename(hint) + '_' + randomPart + fileExt;
+	}
+
 	async downloadImage_(url) {
 		const tempDir = Setting.value('tempDir');
-
-		const getFilenameWithRandomPart = (directory, name, ext) => {
-			const randomPart = md5(Math.random() + '_' + Date.now());
-			return directory + '/' + safeFilename(name) + '_' + randomPart.substr(0,10) + fileExt;
-		}
 
 		const isDataUrl = url && url.toLowerCase().indexOf('data:') === 0;
 
@@ -472,38 +530,47 @@ class Api {
 		if (fileExt) fileExt = '.' + fileExt;
 		let imagePath = tempDir + '/' + safeFilename(name) + fileExt;
 		if (await shim.fsDriver().exists(imagePath)) {
-			imagePath = getFilenameWithRandomPart(tempDir, name, fileExt);
+			imagePath = tempDir + '/' + this.randomNameWithExt_(name, fileExt);
 		}
 
+		let response = null;
 		try {
 			if (isDataUrl) {
 				await shim.imageFromDataUrl(url, imagePath);
+				return imagePath;
 			} else {
-				const response = await shim.fetchBlob(url, { path: imagePath });
-				const contentType = response.headers['content-type'];
-				if (contentType) {
-					const mime = contentType.split(';')[0]
-					if (Resource.isSupportedImageMimeType(mime)) {
-						let ext = mimeUtils.toFileExtension(mime) || '';
-						if (ext) {
-							ext = '.' + ext;
-							if (ext !== fileExt) {
-								let newPath = tempDir + '/' + safeFilename(name) + ext;
-								if (await shim.fsDriver().exists(newPath)) {
-									newPath = getFilenameWithRandomPart(tempDir, name, ext);
-								}
-								await shim.fsDriver().move(imagePath, newPath);
-								imagePath = newPath;
-							}
-						}
-					}
-				}
+				response = await shim.fetchBlob(url, { path: imagePath });
 			}
-			return imagePath;
 		} catch (error) {
 			this.logger().warn('Cannot download image at ' + url, error);
 			return '';
 		}
+
+		const fileName = basename(imagePath);
+		let newName = this.adjustFilenameWithHeaders_(fileName, response.headers);
+		if (newName && newName !== fileName) {
+			const readChunk = require('read-chunk');
+			const fileType = require('file-type');
+			const buffer = await readChunk(imagePath, 0, 64);
+			const detectedType = fileType(buffer);
+
+			if (detectedType && response.headers['content-type'] != detectedType.mime) {
+				response.headers['content-type'] = detectedType.mime;
+				newName = this.adjustFilenameWithHeaders_(newName, response.headers);
+			}
+			let newPath = tempDir + '/' + newName;
+			if (await shim.fsDriver().exists(newPath)) {
+				const ext = '.' + fileExtension(newName);
+				newPath = tempDir + '/' + this.randomNameWithExt_(filename(newName), ext);
+			}
+			try {
+				await shim.fsDriver().move(imagePath, newPath);
+				return newPath;
+			} catch (error) {
+				this.logger().warn('Cannot move image ' + imagePath + ' to ' + newPath, error);
+			}
+		}
+		return imagePath;
 	}
 
 	async downloadImages_(urls) {

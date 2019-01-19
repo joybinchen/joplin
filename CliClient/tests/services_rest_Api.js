@@ -1,13 +1,15 @@
 require('app-module-path').addPath(__dirname);
 
 const { time } = require('lib/time-utils.js');
-const { fileContentEqual, setupDatabase, setupDatabaseAndSynchronizer, db, synchronizer, fileApi, sleep, clearDatabase, switchClient, syncTargetId, objectsEqual, checkThrowAsync } = require('test-utils.js');
+const { fileContentEqual, setupDatabase, setupDatabaseAndSynchronizer, db, synchronizer, fileApi, sleep, clearDatabase, switchClient, syncTargetId, objectsEqual, checkThrowAsync, setupHttpServer } = require('test-utils.js');
 const markdownUtils = require('lib/markdownUtils.js');
 const Api = require('lib/services/rest/Api');
 const Folder = require('lib/models/Folder');
 const Note = require('lib/models/Note');
 const Tag = require('lib/models/Tag');
 const Resource = require('lib/models/Resource');
+const mimeUtils = require('lib/mime-utils').mime;
+const { fileExtension } = require('lib/path-utils');
 
 jasmine.DEFAULT_TIMEOUT_INTERVAL = 10000;
 
@@ -286,4 +288,112 @@ describe('services_rest_Api', function() {
 		done();
 	});
 
+});
+
+let httpServer = null;
+
+const testImageType = async (done, filePath, contentType, fileExt, mime, fileName=null, supportedImage=true, tail='some.meaningless') => {
+	const imageUrl = httpServer.getUrl(filePath, contentType, fileName, tail);
+	// console.log('testImageType', filePath, contentType, fileExt, mime, fileName, supportedImage, imageUrl);
+	const f = await Folder.save({ title: "mon carnet" });
+	const response = await api.route('POST', 'notes', null, JSON.stringify({
+		title: 'testing get image ext from Content-Type',
+		parent_id: f.id,
+		body_html: '<b>avatar</b><img src="' + imageUrl + '"/>',
+	}));
+
+	const resources = await Resource.all();
+	expect(resources.length).toBe(1);
+
+	if (resources.length) {
+		const resource = resources[0];
+		expect(response.body.indexOf('(:/'+resource.id+')') >= 0).toBe(true);
+
+		expect(Resource.isSupportedImageMimeType(resource.mime)).toBe(supportedImage);
+		// if (!supportedImage) console.log('receive', imageUrl, resource);
+		expect(resource.mime).toBe(mime);
+		expect(resource.file_extension).toBe(fileExt);
+		if (fileName) {
+			expect(resource.title).toBe(fileName);
+		}
+	} else {
+		// console.log('receive', imageUrl, resources.length ? resources[0] : 'none');
+	}
+	done();
+};
+
+const testImageWithContentType = (imageType, filePath, contentType, ext, mime, supportedImage=true) => {
+	const fileName = filePath.split('/').pop();
+	it(imageType + ' ' + ext + ' image with content-disposition and contentType: ' + contentType, async (done) => {
+		await testImageType(done, filePath, contentType, ext, mime, fileName, supportedImage);
+	});
+	if (!(ext == 'svg' && contentType && contentType != 'image/svg+xml'))
+	it(imageType + ' ' + ext + ' image with only contentType: ' + contentType, async (done) => {
+		await testImageType(done, filePath, contentType, ext, mime, null, supportedImage);
+	});
+	it(imageType + ' ' + ext + ' image with only content-disposition', async (done) => {
+		await testImageType(done, filePath, null, ext, mime, fileName, supportedImage);
+	});
+	it(imageType + ' ' + ext + ' image with correct file extension at url tail', async (done) => {
+		await testImageType(done, filePath, null, ext, mime, null, supportedImage, fileName);
+	});
+}
+
+describe('services_rest_Api should get corret mimetype for', function() {
+
+	beforeEach(async (done) => {
+		api = new Api();
+		await setupDatabaseAndSynchronizer(1);
+		await switchClient(1);
+		httpServer = await setupHttpServer();
+		done();
+	});
+
+	afterEach(async (done) => {
+		httpServer.destroy();
+		done();
+	});
+
+	const supported = {
+		'../../Assets/JoplinLetter.svg': 'image/svg+xml',
+		'../../Assets/Adresse.png': 'image/png',
+		'../tests/support/slow-typing-doc1.gif': 'image/gif',
+		'../tests/support/webp-animated.webp': 'image/webp',
+		'../tests/support/photo.jpg': 'image/jpeg',
+		'../tests/support/photo.jpg': 'image/jpg',
+	};
+	for(let filePath in supported) if (filePath) {
+		const contentType = supported[filePath];
+		let ext = fileExtension(filePath);
+		const mime = mimeUtils.fromFileExtension(ext);
+		testImageWithContentType('supported', filePath, contentType, ext, mime);
+		if (ext == 'svg') continue;
+		testImageWithContentType('supported', filePath, 'application/octet-stream', ext, mime);
+	}
+
+	const misleading = {
+		'../../Assets/JoplinLetter.svg': 'image/jpeg',
+		'../../Assets/Adresse.png': 'image/jpg',
+		'../tests/support/photo.jpg': 'image/png',
+		'../tests/support/slow-typing-doc1.gif': 'image/jpeg',
+		'../tests/support/webp-animated.webp': 'image/png',
+	};
+	for(let filePath in misleading) if (filePath) {
+		let contentType = misleading[filePath];
+		let ext = fileExtension(filePath)
+		const mime = mimeUtils.fromFileExtension(ext)
+		testImageWithContentType('misleading', filePath, contentType, ext, mime);
+	}
+
+	const nonImage = {
+		'../tests/support/jasmine.json': 'application/json',
+		'../../Tools/PortableAppsLauncher/App/readme.txt': 'text/plain',
+		// 'images/Joplin.ico': 'image/vnd.microsoft.icon',
+	};
+	for(let filePath in nonImage) if (filePath) {
+		let contentType = nonImage[filePath];
+		let ext = filePath.split('.').pop()
+		const mime = mimeUtils.fromFileExtension(fileExtension(filePath))
+		testImageWithContentType('unsupported', filePath, contentType, ext, mime, false);
+	}
 });
