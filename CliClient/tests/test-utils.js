@@ -333,22 +333,24 @@ async function setupHttpServer() {
 		const url = urlParser.parse(request.url, true);
 		const splited = url.pathname.split('/')
 		const tail = url.pathname.split('/').slice(3).join('/');
-		// console.log('fetching', splited[1], splited[2], tail);
 		const filePath = __dirname + '/' + querystring.unescape(splited[1]);
 		const responseHeaders = querystring.decode(splited[2]);
+		if (responseHeaders.sleep){
+			const seconds = Number(responseHeaders.sleep) / 1000;
+			logger.debug('request', filePath, responseHeaders.sleep, seconds);
+			await sleep(seconds);
+		}
 		const buffer = await shim.fsDriver().readFile(filePath, 'Buffer');
-		// console.log('response with', filePath, responseHeaders, buffer.length);
+		logger.debug('response with', filePath, responseHeaders, buffer.length);
 		response.writeHead(200, responseHeaders);
 		response.end(buffer);
 	});
 
 	server.getUrl = (filePath, contentType='application/octet-stream', fileName=null, tail='some.meaningless', extraHeaders=null) => {
-		// console.log('getUrl', filePath, contentType, fileName, tail);
 		const escapedPath = querystring.escape(filePath);
-		// console.log('escapedPath', escapedPath);
 		const headers = Object.assign({}, extraHeaders);
 		if (contentType) headers['Content-Type'] = contentType;
-		if (fileName) headers['Content-Disposition'] = 'attachment; filename=' + fileName;
+		if (fileName) headers['Content-Disposition'] = 'attachment; filename="' + fileName + '"';
 		const encodedHeaders = querystring.stringify(headers);
 		const parts = ['http://127.0.0.1:' + port, escapedPath, encodedHeaders, tail];
 		return parts.join('/');

@@ -59,16 +59,16 @@ function shimInit() {
 	}
 
 	const resizeImage_ = async function(filePath, targetPath, mime) {
+		const maxDim = Resource.IMAGE_MAX_DIMENSION;
 		if (shim.isElectron()) { // For Electron
 			const nativeImage = require('electron').nativeImage;
 			let image = nativeImage.createFromPath(filePath);
 			if (image.isEmpty()) throw new Error('Image is invalid or does not exist: ' + filePath);
 
-			const maxDim = Resource.IMAGE_MAX_DIMENSION;
 			const size = image.getSize();
 
 			if (size.width <= maxDim && size.height <= maxDim) {
-				shim.fsDriver().copy(filePath, targetPath);
+				await shim.fsDriver().copy(filePath, targetPath);
 				return;
 			}
 
@@ -85,9 +85,18 @@ function shimInit() {
 		} else { // For the CLI tool
 			const sharp = require('sharp');
 
+			const image = sharp(filePath);
+			const meta = await image.metadata();
+
+			if (meta.width <= maxDim && meta.height <= maxDim) {
+				try {
+					return await shim.fsDriver().copy(filePath, targetPath);
+				} catch (e) { }
+			}
+
 			return new Promise((resolve, reject) => {
-				sharp(filePath)
-				.resize(Resource.IMAGE_MAX_DIMENSION, Resource.IMAGE_MAX_DIMENSION)
+				image
+				.resize(maxDim, maxDim)
 				.max()
 				.withoutEnlargement()
 				.toFile(targetPath, (err, info) => {
@@ -101,22 +110,22 @@ function shimInit() {
 		}
 	}
 
-	shim.createResourceFromPath = async function(filePath) {
+	shim.createResourceFromPath = async function(filePath, fileName = null, mime = null) {
 		const readChunk = require('read-chunk');
 		const imageType = require('image-type');
 
 		const { uuid } = require('lib/uuid.js');
 		const { basename, fileExtension, safeFileExtension } = require('lib/path-utils.js');
-		const mime = require('mime/lite');
 
 		if (!(await fs.pathExists(filePath))) throw new Error(_('Cannot access %s', filePath));
 
+		if (!fileName) fileName = basename(filePath);
 		let resource = Resource.new();
 		resource.id = uuid.create();
-		resource.mime = mime.getType(filePath);
-		resource.title = basename(filePath);
+		resource.mime = mime ? mime : require('mime/lite').getType(fileName);
+		resource.title = basename(fileName);
 
-		let fileExt = safeFileExtension(fileExtension(filePath));
+		let fileExt = safeFileExtension(fileExtension(fileName));
 
 		if (!resource.mime) {
 			const buffer = await readChunk(filePath, 0, 64);

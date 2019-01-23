@@ -1,10 +1,10 @@
 const Folder = require('lib/models/Folder');
 const Note = require('lib/models/Note');
 const Tag = require('lib/models/Tag');
+const Resource = require('lib/models/Resource');
 const BaseItem = require('lib/models/BaseItem');
 const BaseModel = require('lib/BaseModel');
 const Setting = require('lib/models/Setting');
-const Resource = require('lib/models/Resource');
 const markdownUtils = require('lib/markdownUtils');
 const mimeUtils = require('lib/mime-utils.js').mime;
 const { Logger } = require('lib/logger.js');
@@ -13,6 +13,7 @@ const { shim } = require('lib/shim');
 const HtmlToMd = require('lib/HtmlToMd');
 const { fileExtension, safeFileExtension, safeFilename, filename, basename, dirname, ltrimSlashes } = require('lib/path-utils');
 const ApiResponse = require('lib/services/rest/ApiResponse');
+const urlParser = require('url');
 
 class ApiError extends Error {
 
@@ -456,10 +457,42 @@ class Api {
 		return await shim.attachFileToNote(note, tempFilePath);
 	}
 
+	getAttachNameFrom_(contentDisposition) {
+		// try to get real filename from header content-disposition
+		if (!contentDisposition) return null;
+		let attachName = null;
+		const fields = contentDisposition.split(';');
+		for(let i = fields.length - 1; i >= 0; --i) {
+			let field = fields[i];
+			if (!field) continue;
+			field = field.trim();
+			if (field.startsWith('filename=')) {
+				field = field.slice(9).trim();
+				if (field[0] === '"') field = field.slice(1, -1).trim();
+				attachName = field;
+				if (attachName) {
+					return basename(attachName);
+				}
+			}
+			if (field.startsWith('filename*=')) {
+				field = field.slice(10).trim()
+				if (field[0] === '"') field = field.slice(1, -1);
+				const parts = field.split("'").trim();
+				const charset = parts.splice(0,1);
+				const encoding = parts.splice(0, 1);
+				attachName = querystring.unescape(parts.join("'")).trim();
+				if (attachName) {
+					return basename(attachName);
+				}
+			}
+		}
+		return null;
+	}
+
 	adjustFilenameWithHeaders_(fileName, headers) {
 		const contentType = headers['content-type'];
 		let mime = contentType ? contentType.split(';')[0].trim() : '';
-		const mimeFromExt = mimeUtils.fromFileExtension(fileExtension(fileName))
+		const mimeFromExt = mimeUtils.fromFileExtension(fileExtension(fileName));
 
 		// guest mime from original file extension for non-image mime
 		if (!mime || !mime.startsWith('image/')) {
@@ -468,27 +501,9 @@ class Api {
 			}
 		}
 
-		// try to get real filename from header content-disposition
-		const contentDisposition = headers['content-disposition'];
-		let attachName = null;
-		if (contentDisposition) {
-			const fields = contentDisposition.split(';');
-			for(let i = fields.length - 1; i >= 0; --i) {
-				let field = fields[i];
-				if (!field) continue;
-				field = field.trim();
-				if (field.startsWith('filename=')) {
-					attachName = field.slice(9)
-					if (attachName) {
-						attachName = basename(attachName);
-					}
-					break;
-				}
-			}
-		}
-
 		// use attachName only if it's supported image type.
 		// trust file extension in content-disposition over mime from content-type.
+		const attachName = this.getAttachNameFrom_(headers['content-disposition']);
 		if (attachName) {
 			//console.log('got attach ' + attachName + ' on MIME ' + mime);
 			const mimeFromAttach = mimeUtils.fromFileExtension(fileExtension(attachName));
@@ -496,81 +511,76 @@ class Api {
 				|| Resource.isSupportedImageMimeType(mimeFromAttach)
 				|| !mime || !Resource.isSupportedImageMimeType(mime))) {
 				mime = mimeFromAttach;
-				fileName = attachName;
 			}
+			fileName = attachName;
 		}
 
 		// adjust fileExtension for supported image mime
-		if (mime/* && Resource.isSupportedImageMimeType(mime) */) {
+		else if (mime/* && Resource.isSupportedImageMimeType(mime) */) {
 			const fileExt = fileExtension(fileName);
 			const ext = mimeUtils.toFileExtension(mime) || '';
 			if (ext && ext !== fileExt) {
 				if (fileExt) {
-					return fileName.slice(0, -fileExt.length) + ext;
+					return [fileName.slice(0, -fileExt.length) + ext, mime];
 				} else {
-					return fileName + '.' + ext;
+					return [fileName + '.' + ext, mime];
 				}
 			}
+		} else {
+			mime = mimeFromExt;
 		}
-		return fileName;
-	}
-
-	randomNameWithExt_(hint, fileExt) {
-		const randomPart = md5(Math.random() + '_' + Date.now()).substr(0,10);
-		return safeFilename(hint) + '_' + randomPart + fileExt;
+		return [fileName, mime];
 	}
 
 	async downloadImage_(url) {
 		const tempDir = Setting.value('tempDir');
+		const randomPart = md5(Math.random() + '_' + Date.now()).substr(0,10);
+		const urlHash = md5(url) + '_' + randomPart;
 
 		const isDataUrl = url && url.toLowerCase().indexOf('data:') === 0;
-
-		const name = isDataUrl ? md5(Math.random() + '_' + Date.now()) : filename(url);
-		let fileExt = isDataUrl ? mimeUtils.toFileExtension(mimeUtils.fromDataUrl(url)) : safeFileExtension(fileExtension(url).toLowerCase());
-		if (fileExt) fileExt = '.' + fileExt;
-		let imagePath = tempDir + '/' + safeFilename(name) + fileExt;
-		if (await shim.fsDriver().exists(imagePath)) {
-			imagePath = tempDir + '/' + this.randomNameWithExt_(name, fileExt);
+		if (isDataUrl) {
+			const contentType = mimeUtils.fromDataUrl(url);
+			const fileExt = mimeUtils.toFileExtension(contentType);
+			const fileName = urlHash + '.' + fileExt;
+			const imagePath = tempDir + '/' + fileName;
+			try {
+				await shim.imageFromDataUrl(url, imagePath);
+			} catch (error) {
+				this.logger().warn('Cannot download image ' + url, error);
+				return null;
+			}
+			return {name: fileName, path: imagePath, mime: contentType};
 		}
+
+		let fileName = basename(urlParser.parse(url).pathname);
+		let fileExt = safeFileExtension(fileExtension(fileName).toLowerCase());
+		let contentType = mimeUtils.fromFileExtension(fileExt);
+		let imagePath = tempDir + '/' + urlHash + '.' + fileExt;
 
 		let response = null;
 		try {
-			if (isDataUrl) {
-				await shim.imageFromDataUrl(url, imagePath);
-				return imagePath;
-			} else {
-				response = await shim.fetchBlob(url, { path: imagePath });
-			}
+			response = await shim.fetchBlob(url, { path: imagePath });
 		} catch (error) {
 			this.logger().warn('Cannot download image at ' + url, error);
-			return '';
+			return null;
 		}
+		const responseHeaders = Object.assign({}, response.headers);
 
-		const fileName = basename(imagePath);
-		let newName = this.adjustFilenameWithHeaders_(fileName, response.headers);
-		if (newName && newName !== fileName) {
+		let mime;
+		[fileName, mime] = this.adjustFilenameWithHeaders_(fileName, responseHeaders);
+		if (mime && mime !== contentType) {
 			const readChunk = require('read-chunk');
 			const fileType = require('file-type');
 			const buffer = await readChunk(imagePath, 0, 64);
 			const detectedType = fileType(buffer);
 
-			if (detectedType && response.headers['content-type'] != detectedType.mime) {
-				response.headers['content-type'] = detectedType.mime;
-				newName = this.adjustFilenameWithHeaders_(newName, response.headers);
-			}
-			let newPath = tempDir + '/' + newName;
-			if (await shim.fsDriver().exists(newPath)) {
-				const ext = '.' + fileExtension(newName);
-				newPath = tempDir + '/' + this.randomNameWithExt_(filename(newName), ext);
-			}
-			try {
-				await shim.fsDriver().move(imagePath, newPath);
-				return newPath;
-			} catch (error) {
-				this.logger().warn('Cannot move image ' + imagePath + ' to ' + newPath, error);
+			if (detectedType && responseHeaders['content-type'] != detectedType.mime) {
+				responseHeaders['content-type'] = detectedType.mime;
+				[fileName, mime] = this.adjustFilenameWithHeaders_(fileName, responseHeaders);
+				contentType = detectedType.mime;
 			}
 		}
-		return imagePath;
+		return {name: fileName, path: imagePath, mime: contentType};
 	}
 
 	async downloadImages_(urls) {
@@ -585,8 +595,8 @@ class Api {
 			const url = urls[urlIndex++];
 
 			return new Promise(async (resolve, reject) => {
-				const imagePath = await this.downloadImage_(url);
-				if (imagePath) output[url] = { path: imagePath, originalUrl: url };
+				const result = await this.downloadImage_(url);
+				if (result && result.path) output[url] = result;
 				resolve();
 			});
 		}
@@ -603,7 +613,7 @@ class Api {
 			if (!urls.hasOwnProperty(url)) continue;
 			const urlInfo = urls[url];
 			try {
-				const resource = await shim.createResourceFromPath(urlInfo.path);
+				const resource = await shim.createResourceFromPath(urlInfo.path, urlInfo.name, urlInfo.mime);
 				urlInfo.resource = resource;
 			} catch (error) {
 				this.logger().warn('Cannot create resource for ' + url, error);
