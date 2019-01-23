@@ -23,8 +23,8 @@ async function setupResizeImage(imagePath, color='#338844') {
 	if (await shim.fsDriver().exists(__dirname + '/' + imagePath)) return;
 	const imageFile = imagePath.split('/').pop();
 	const fileName = imageFile.split('.')[0];
-	if (fileName === 'maxDim.jpg')
-		return await sharp(__dirname + '/' + photo).resize(maxDim, maxDim, {fit: 'contain'}).jpeg({quality: 10}).toFile(__dirname + '/' + imagePath);
+	if (imageFile === 'maxDim.jpg')
+		return await sharp(__dirname + '/../tests/support/photo.jpg').resize(maxDim, maxDim, {fit: 'contain'}).jpeg({quality: 10}).toFile(__dirname + '/' + imagePath);
 	const [width, height] = fileName.split('x').slice(0,2);
 	const svgContent = '<svg><rect x="0" y="0" width="' + width +'" height="' + height + '" style="fill:' + color + '"/></svg>';
 	await sharp(Buffer.from(svgContent)).jpeg({quality: 100, }).toFile(__dirname + '/' + imagePath);
