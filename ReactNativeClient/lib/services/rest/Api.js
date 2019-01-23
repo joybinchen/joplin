@@ -14,6 +14,7 @@ const HtmlToMd = require('lib/HtmlToMd');
 const { fileExtension, safeFileExtension, safeFilename, filename, basename, dirname, ltrimSlashes } = require('lib/path-utils');
 const ApiResponse = require('lib/services/rest/ApiResponse');
 const urlParser = require('url');
+const querystring = require('querystring');
 
 class ApiError extends Error {
 
@@ -477,7 +478,7 @@ class Api {
 			if (field.startsWith('filename*=')) {
 				field = field.slice(10).trim()
 				if (field[0] === '"') field = field.slice(1, -1);
-				const parts = field.split("'").trim();
+				const parts = field.trim().split("'");
 				const charset = parts.splice(0,1);
 				const encoding = parts.splice(0, 1);
 				attachName = querystring.unescape(parts.join("'")).trim();
@@ -596,7 +597,10 @@ class Api {
 
 			return new Promise(async (resolve, reject) => {
 				const result = await this.downloadImage_(url);
-				if (result && result.path) output[url] = result;
+				if (result && result.path) {
+					result.originalUrl = url;
+					output[url] = result;
+				}
 				resolve();
 			});
 		}

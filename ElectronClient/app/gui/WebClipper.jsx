@@ -172,7 +172,7 @@ class WebClipperComponent extends React.Component {
 
 			result = await api.createResourcesFromPaths_(result);
 			await api.removeTempFiles_(result);
-			newNote.body = api.replaceImageUrlsByResources_(newBody, result);
+			newNote.body = api.replaceImageUrlsByResources_(newBody, result, newNote.image_sizes);
 			this.props.updateMdClipping(newNote);
 		} else if (msg === "log") {
 			console.log(...args);

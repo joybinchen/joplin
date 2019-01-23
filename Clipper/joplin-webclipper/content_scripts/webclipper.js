@@ -14,17 +14,22 @@
 			output = output.join('/');
 		}
 		return output;
-	};
+	}
 
-	const clippedContentResponse = (title, html) => {
-		return {
-			name: 'clippedContent',
-			title: title,
-			html: html,
-			base_url: baseUrl(),
-			url: location.origin + location.pathname + location.search,
-		};
-	};
+	function getImageSizes(element) {
+		const images = element.getElementsByTagName('img');
+		const output = {};
+		for (let i = 0; i < images.length; i++) {
+			const img = images[i];
+			output[img.src] = {
+				width: img.width,
+				height: img.height,
+				naturalWidth: img.naturalWidth,
+				naturalHeight: img.naturalHeight,
+			};
+		}
+		return output;
+	}
 
 	// Cleans up element by removing all its invisible children (which we don't want to render as Markdown)
 	function cleanUpElement(element) {
@@ -44,7 +49,7 @@
 		}
 	}
 
-	async function readabilityProcess() {
+	function readabilityProcess() {
 		var uri = {
 			spec: location.href,
 			host: location.host,
@@ -65,6 +70,17 @@
 			title: article.title,
 			body: article.content,
 		}
+	}
+
+	const clippedContentResponse = (title, html, imageSizes) => {
+		return {
+			name: 'clippedContent',
+			title: title,
+			html: html,
+			base_url: baseUrl(),
+			url: location.origin + location.pathname + location.search,
+			image_sizes: imageSizes,
+		};
 	};
 
 	const ipcProxySendToHost = (methodName, arg) => {
@@ -80,9 +96,9 @@
 			console.warn('Sending full page HTML instead');
 			const cleanDocument = document.body.cloneNode(true);
 			cleanUpElement(cleanDocument);
-			return clippedContentResponse(pageTitle(), cleanDocument.innerHTML);
+			return clippedContentResponse(pageTitle(), cleanDocument.innerHTML, getImageSizes(document));
 		}
-		return clippedContentResponse(article.title, article.body);
+		return clippedContentResponse(article.title, article.body, getImageSizes(document));
 	};
 
 	const handleLazyImages = () => {
@@ -108,6 +124,7 @@
 				html: result.html,
 				base_url: document.baseURI,
 				source_url: document.location.href,
+				image_sizes: result.image_sizes,
 			});
 		}, (reason) => {
 			console.log(reason);
