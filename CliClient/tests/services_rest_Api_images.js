@@ -197,8 +197,9 @@ const testImageType = async (done, filePath, contentType, fileExt, mime, fileNam
 		expect(response.body.indexOf('(:/'+resource.id+')') >= 0).toBe(true);
 
 		expect(Resource.isSupportedImageMimeType(resource.mime)).toBe(supportedImage);
-	} else {
-		logger.debug('receive', imageUrl, resources.length ? resources[0] : 'none');
+		expect(resource.mime).toBe(mime);
+		expect(resource.file_extension).toBe(fileExt);
+		if (fileName) expect(resource.title).toBe(fileName);
 	}
 	done();
 };
@@ -254,4 +255,25 @@ describe('services_rest_Api should load correctly for', function() {
 		testImageWithContentType('supported', filePath, supported[filePath]);
 		testImageWithContentType('supported', filePath, 'application/octet-stream');
 	}
+
+	const misleading = {
+		'../../Assets/JoplinLetter.svg': 'image/jpeg',
+		'../../Assets/Adresse.png': 'image/jpg',
+		'../tests/support/photo.jpg': 'image/png',
+		'../tests/support/slow-typing-doc1.gif': 'image/jpeg',
+		'../tests/support/webp-animated.webp': 'image/png',
+	};
+	for(let filePath in misleading) if (filePath) {
+		testImageWithContentType('misleading', filePath, misleading[filePath]);
+	}
+
+	const nonImage = {
+		'../tests/support/jasmine.json': 'application/json',
+		'../../Tools/PortableAppsLauncher/App/readme.txt': 'text/plain',
+		// 'images/Joplin.ico': 'image/vnd.microsoft.icon',
+	};
+	for(let filePath in nonImage) if (filePath) {
+		testImageWithContentType('unsupported', filePath, nonImage[filePath], false);
+	}
+
 });
