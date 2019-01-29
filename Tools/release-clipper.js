@@ -23,6 +23,7 @@ async function updateManifestVersionNumber(manifestPath) {
 	const manifestText = await fs.readFile(manifestPath, 'utf-8');
 	let manifest = JSON.parse(manifestText);
 	let v = manifest.version.split('.');
+	if (v.length <= 3) v.push('0');
 	const buildNumber = Number(v.pop()) + 1;
 	v.push(buildNumber);
 	manifest.version = v.join('.');
@@ -53,6 +54,8 @@ async function main() {
 			name: 'firefox',
 			removeManifestKeys: (manifest) => {
 				manifest = Object.assign({}, manifest);
+				manifest.icons["32"] = manifest.browser_action.default_icon;
+				manifest.applications.gecko.id = 'joplin@vif.cn';
 				delete manifest.background.persistent;
 				return manifest;
 			},
@@ -75,6 +78,7 @@ async function main() {
 		console.info(await execCommand('7z a -tzip ' + dist.name + '.zip *'));
 		console.info(await execCommand('mv ' + dist.name + '.zip ..'));
 	}
+	return;
 
 	console.info(await execCommand('git pull'));
 	console.info(await execCommand('git add -A'));

@@ -7,12 +7,12 @@ function randomClipperPort(state, env) {
 	const startPort = env === 'prod' ? startPorts.prod : startPorts.dev;
 
 	if (!state) {
-		state = { offset: 0 };
+		state = { offset: 0, startPort: startPort };
 	} else {
 		state.offset++;
 	}
 
-	state.port = startPort + state.offset;
+	state.port = state.startPort + state.offset;
 
 	return state;
 }

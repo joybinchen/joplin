@@ -84,17 +84,24 @@ class Bridge {
 			this.scheduleStateSaveIID = null;
 		}
 
+		const isDev = this.env() == "dev";
 		this.scheduleStateSaveIID = setTimeout(() => {
 			this.scheduleStateSaveIID = null;
 
 			const toSave = {
 				selectedFolderId: state.selectedFolderId,
 			};
+			const defaultPort = isDev ? 27583 : 41184;
+			const servicePort = state.clipperServer.port;
+			const host = servicePort.split(':')[0] || '127.0.0.1';
+			const port = Number(servicePort.split(':').pop()) || defaultPort;
+			toSave['clipperServer' + (isDev ? '-dev' : '')] = host + ':' + port;
+			if (state.clipperServer.port !== state) this.findClipperServerPort();
 
 			console.info('Popup: Saving state', toSave);
 
 			this.storageSet(toSave);
-		}, 100);
+		}, 1000);
 	}
 
 	async restoreState() {
@@ -103,24 +110,41 @@ class Bridge {
 		if (!s) return;
 
 		if (s.selectedFolderId) this.dispatch({ type: 'SELECTED_FOLDER_SET', id: s.selectedFolderId });
+		if (s.clipperServer) this.dispatch({ type: 'CLIPPER_SERVER_SET', port: s.clipperServer });
 	}
 
+	async restoreClipperServerState() {
+		const isDev = this.env() ==='dev';
+		const serviceKey = 'clipperServer' + (isDev ? '-dev' : '');
+		const s = await this.storageGet([serviceKey]);
+		const defaultPort = isDev ? 27583 : 41184;
+		const servicePort = (s ? s[serviceKey] : '') || '127.0.0.1:' + defaultPort;
+		const state = {
+			host: servicePort.split(':')[0] || '127.0.0.1',
+			startPort: Number(servicePort.split(':').pop()) || defaultPort ,
+			offset: -1,
+		}
+		console.info('Popup: Restoring saved clipper server state:', s, state);
+		return state;
+	}
+	sleep(n) { return new Promise((resolve, reject) => { setTimeout(() => { resolve(); }, Math.round(n * 1000)); }); }
 	async findClipperServerPort() {
 		this.dispatch({ type: 'CLIPPER_SERVER_SET', foundState: 'searching' });
 
-		let state = null;
+		let state = await this.restoreClipperServerState();
+		console.info('restoreClipperServerState: ', state);
 		for (let i = 0; i < 10; i++) {
 			state = randomClipperPort(state, this.env());
 
 			try {
 				console.info('findClipperServerPort: Trying ' + state.port); 
-				const response = await fetch('http://127.0.0.1:' + state.port + '/ping');
+				const response = await fetch('http://' + state.host + ':' + state.port + '/ping');
 				const text = await response.text();
 				console.info('findClipperServerPort: Got response: ' + text);
 				if (text.trim() === 'JoplinClipperServer') {
 					this.clipperServerPortStatus_ = 'found';
-					this.clipperServerPort_ = state.port;
-					this.dispatch({ type: 'CLIPPER_SERVER_SET', foundState: 'found', port: state.port });
+					this.clipperServerPort_ = state.host + ':' + state.port;
+					this.dispatch({ type: 'CLIPPER_SERVER_SET', foundState: 'found', port: this.clipperServerPort_ });
 
 					const folders = await this.folderTree();
 					this.dispatch({ type: 'FOLDERS_SET', folders: folders });
@@ -170,7 +194,7 @@ class Bridge {
 
 	async clipperServerBaseUrl() {
 		const port = await this.clipperServerPort();
-		return 'http://127.0.0.1:' + port;
+		return 'http://' + port;
 	}
 
 	async tabsExecuteScript(options) {

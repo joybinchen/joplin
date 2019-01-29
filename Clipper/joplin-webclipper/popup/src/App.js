@@ -18,10 +18,7 @@ class AppComponent extends Component {
 		});
 
 		this.confirm_click = () => {
-			const content = Object.assign({}, this.props.clippedContent);
-			content.tags = this.state.selectedTags.join(',');
-			content.parent_id = this.props.selectedFolderId;
-			bridge().sendContentToJoplin(content);
+			bridge().sendContentToJoplin(this.props.clippedContent);
 		}
 
 		this.contentTitle_change = (event) => {
@@ -34,18 +31,24 @@ class AppComponent extends Component {
 		this.clipSimplified_click = () => {
 			bridge().sendCommandToActiveTab({
 				name: 'simplifiedPageHtml',
+				parent_id: this.props.selectedFolderId,
+				tags: this.state.selectedTags.join(','),
 			});
 		}
 
 		this.clipComplete_click = () => {
 			bridge().sendCommandToActiveTab({
 				name: 'completePageHtml',
+				parent_id: this.props.selectedFolderId,
+				tags: this.state.selectedTags.join(','),
 			});
 		}
 
 		this.clipSelection_click = () => {
 			bridge().sendCommandToActiveTab({
 				name: 'selectedHtml',
+				parent_id: this.props.selectedFolderId,
+				tags: this.state.selectedTags.join(','),
 			});
 		}
 
@@ -74,6 +77,15 @@ class AppComponent extends Component {
 			this.props.dispatch({
 				type: 'SELECTED_FOLDER_SET',
 				id: event.target.value,
+				saveToStorage: true,
+			});
+		}
+
+		this.clipperServer_change = (event) => {
+			this.props.dispatch({
+				type: 'CLIPPER_SERVER_SET',
+				port: event.target.value,
+				saveToStorage: true,
 			});
 		}
 
@@ -125,6 +137,8 @@ class AppComponent extends Component {
 			contentScriptLoaded: true,
 		});
 
+		if (!this.props.folders.length) return;
+
 		let foundSelectedFolderId = false;
 
 		const searchSelectedFolder = (folders) => {
@@ -138,11 +152,10 @@ class AppComponent extends Component {
 		searchSelectedFolder(this.props.folders);
 
 		if (!foundSelectedFolderId) {
-			const newFolderId = this.props.folders.length ? this.props.folders[0].id : null;
-			this.props.dispatch({
-				type: 'SELECTED_FOLDER_SET',
-				id: newFolderId,
-			});
+			const newFolderId = this.props.folders[0].id;
+			if (newFolderId !== this.props.selectedFolderId) {
+				this.props.dispatch({ type: 'SELECTED_FOLDER_SET', id: newFolderId, });
+			}
 		}
 	}
 
@@ -216,7 +229,7 @@ class AppComponent extends Component {
 			const foundState = this.props.clipperServer.foundState
 			
 			if (foundState === 'found') {
-				msg = "Ready on port " + this.props.clipperServer.port
+				msg = "Ready on "
 				led = led_green
 			} else {
 				msg = stateToString(foundState)
@@ -225,8 +238,9 @@ class AppComponent extends Component {
 			}
 
 			msg = "Service status: " + msg
-
-			return <div className="StatusBar"><img alt={foundState} className="Led" src={led}/><span className="ServerStatus">{ msg }{ helpLink }</span></div>
+			const clipperServer = this.props.clipperServer.port;
+			const portInput = <input class="ClipperServer" value={ clipperServer } onChange={ this.clipperServer_change } />
+			return <div className="StatusBar"><img alt={foundState} className="Led" src={led}/><span className="ServerStatus">{ msg }{ helpLink }</span>{ portInput }</div>
 		}
 
 		const foldersComp = () => {

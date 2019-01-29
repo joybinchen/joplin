@@ -25,8 +25,8 @@ const reduxMiddleware = store => next => async (action) => {
 	const result = next(action);
 	const newState = store.getState();
 
-	if (['SELECTED_FOLDER_SET'].indexOf(action.type) >= 0) {
-		bridge().scheduleStateSave(newState);
+	if (['SELECTED_FOLDER_SET', 'CLIPPER_SERVER_SET'].indexOf(action.type) >= 0) {
+		if (action.saveToStorage) bridge().scheduleStateSave(newState);
 	}
 
   	return result;

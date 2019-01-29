@@ -116,6 +116,7 @@
 }
 
 .App .Folders select {
+	color: #5A95C7;
 	flex: 1;
 }
 
@@ -156,4 +157,10 @@
 
 .App .StatusBar .ServerStatus .Help {
 	margin-left: 5px;
+}
+
+.App .StatusBar .ClipperServer {
+	width: 8em;
+	height: .9em;
+	color: #5A95C7;
 }
