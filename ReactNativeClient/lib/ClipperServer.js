@@ -162,6 +162,7 @@ class ClipperServer {
 
 			const url = urlParser.parse(request.url, true);
 
+			if (url.pathname === '/') url.pathname = '/ping';
 			const execRequest = async (request, body = '', files = []) => {
 				try {
 					const response = await this.api_.route(request.method, url.pathname, url.query, body, files);
