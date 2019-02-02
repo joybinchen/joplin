@@ -3,6 +3,7 @@ const { _ } = require('lib/locale.js');
 const Setting = require('lib/models/Setting.js');
 const SyncTargetRegistry = require('lib/SyncTargetRegistry');
 const { Logger } = require('lib/logger.js');
+const { reg } = require('lib/registry.js');
 const { shim } = require('lib/shim');
 const fs = require('fs');
 
@@ -21,8 +22,8 @@ class Command extends BaseCommand {
 
 		const ClipperServer = require('lib/ClipperServer');
 		const stdoutFn = (s) => this.stdout(s);
-		const clipperLogger = new Logger();
-		clipperLogger.addTarget('file', { path: Setting.value('profileDir') + '/log-clipper.txt' });
+		const clipperLogger = reg.logger(); //new Logger();
+		//clipperLogger.addTarget('file', { path: Setting.value('profileDir') + '/log-clipper.txt' });
 		clipperLogger.addTarget('console', { console: {
 			info: stdoutFn,
 			warn: stdoutFn,
@@ -52,8 +53,8 @@ class Command extends BaseCommand {
 				await ClipperServer.instance().start();
 				const WebClipService = require('lib/services/WebClipService.js')
 				this.webclipService_ = WebClipService.instance();
+				this.webclipService_.setLogger(clipperLogger);
 				this.webclipService_.start();
-				const { reg } = require('lib/registry.js');
 				reg.scheduleSync(0);
 				const filesystemSyncTargetId = SyncTargetRegistry.nameToId('filesystem');
 				if (Setting.value('sync.target') === filesystemSyncTargetId) {

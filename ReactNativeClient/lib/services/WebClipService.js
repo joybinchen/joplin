@@ -8,9 +8,6 @@ const EventEmitter = require('events');
 const isUrl = require('valid-url').isWebUri;
 const markdownUtils = require('lib/markdownUtils');
 const Api = require('lib/services/rest/Api');
-const api = new Api(() => {
-	return Setting.value('api.token');
-});
 
 class WebClipService extends BaseService {
 
@@ -24,6 +21,9 @@ class WebClipService extends BaseService {
 		this.maxWebClipTasks_ = 3;
 		this.addingNotes_ = false;
 		this.eventEmitter_ = new EventEmitter();
+		this.api_ = new Api(() => {
+			return Setting.value('api.token');
+		});
 	}
 
 	static instance() {
@@ -42,6 +42,7 @@ class WebClipService extends BaseService {
 
 	setLogger(logger) {
 		this.logger_ = logger;
+		this.api_.setLogger(logger);
 	}
 
 	logger() {
@@ -101,20 +102,20 @@ class WebClipService extends BaseService {
 
 			this.logger().debug('clipHtml (' + noteId + '): Downloading images: ', imageUrls);
 
-			let result = await api.downloadImages_(imageUrls);
+			let result = await this.api_.downloadImages_(imageUrls);
 
 			this.logger().debug('clipHtml (' + noteId + '): Creating resources from paths: ', result);
 
-			result = await api.createResourcesFromPaths_(result);
-			await api.removeTempFiles_(result);
-			const noteBody = api.replaceImageUrlsByResources_(newNote.body, result);
+			result = await this.api_.createResourcesFromPaths_(result);
+			await this.api_.removeTempFiles_(result);
+			const noteBody = this.api_.replaceImageUrlsByResources_(newNote.body, result, newNote.image_sizes);
 			Note.save({
 				id: noteId,
 				body: noteBody,
 				title: newNote.title,
 				source_url: newNote.source_url,
 			});
-			this.logger().info("completeWebClipTask" + noteId + " " + newNote.title);
+			this.logger().info("completeWebClipTask " + noteId + " " + newNote.title);
 			completeWebClipTask();
 		} catch(error) {
 			this.logger().error('WebClipService: Could not download note: ' + noteId, error);
