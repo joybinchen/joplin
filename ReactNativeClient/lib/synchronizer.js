@@ -83,6 +83,10 @@ class Synchronizer {
 	}
 
 	logSyncOperation(action, local = null, remote = null, message = null, actionCount = 1) {
+		if (!this.progressReport_[action]) this.progressReport_[action] = 0;
+		this.progressReport_[action] += actionCount;
+
+		if (action === 'fetchingProcessed') return;
 		let line = ['Sync'];
 		line.push(action);
 		if (message) line.push(message);
@@ -106,8 +110,6 @@ class Synchronizer {
 
 		this.logger().debug(line.join(': '));
 
-		if (!this.progressReport_[action]) this.progressReport_[action] = 0;
-		this.progressReport_[action] += actionCount;
 		this.progressReport_.state = this.state();
 		this.onProgress_(this.progressReport_);
 
@@ -484,7 +486,7 @@ class Synchronizer {
 							break;
 						}
 
-						// this.logSyncOperation("fetchingProcessed", null, null, "Processing fetched item");
+						this.logSyncOperation("fetchingProcessed", null, null, "Processing fetched item");
 
 						let remote = remotes[i];
 						if (!BaseItem.isSystemPath(remote.path)) continue; // The delta API might return things like the .sync, .resource or the root folder
