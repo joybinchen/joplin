@@ -31,6 +31,7 @@ class WebClipperComponent extends React.Component {
 		this.state = {
 			webviewReady: false,
 		}
+		this.webview_domReady = this.webview_domReady.bind(this)
 	}
 
 	componentWillMount() {
@@ -38,11 +39,11 @@ class WebClipperComponent extends React.Component {
 	}
 
 	componentDidMount() {
-		//this.webview_.addEventListener('dom-ready', this.webview_domReady.bind(this));
+		//this.webview_.addEventListener('dom-ready', this.webview_domReady);
 	}
 
 	componentWillUnmount() {
-		this.webview_.addEventListener('dom-ready', this.webview_domReady.bind(this));
+		this.webview_.addEventListener('dom-ready', this.webview_domReady);
 	}
 
 	htmlToMdParser() {
@@ -51,23 +52,20 @@ class WebClipperComponent extends React.Component {
 		return this.htmlToMdParser_;
 	}
 
-	webview_domReady() {
+	async webview_domReady() {
 		console.log("webview_domReady for ", this.props.noteId);
 		this.setState({ noteId:this.props.noteId, webviewReady: true });
 		//let ses = this.webview_.getWebContents().session;
 		if (this.props.src === 'about:blank') return;
 		const webContents = this.webview_.getWebContents();
-		webContents.openDevTools();
+		webContents.openDevTools({mode: 'bottom'});
 		console.log('executeJavaScript(JSDOMParser_js,');
-		webContents.executeJavaScript(JSDOMParser_js, () => {
-			console.log('executeJavaScript(Readablility_js,');
-			webContents.executeJavaScript(Readablility_js, () => {
-				console.log('executeJavaScript(webclipper_js)' );
-				webContents.executeJavaScript(webclipper_js, () => {
-					console.log('executeJavaScript(webclipper_js) done' );
-				});
-			});
-		});
+		await webContents.executeJavaScript(JSDOMParser_js);
+		console.log('executeJavaScript(Readablility_js,');
+		await webContents.executeJavaScript(Readablility_js);
+		console.log('executeJavaScript(webclipper_js)' );
+		await webContents.executeJavaScript(webclipper_js)
+		console.log('executeJavaScript(webclipper_js) done' );
 
 		this.webview_.getWebContents().on('did-navigate', async (event) => {
 			const url = event.url;
@@ -78,18 +76,6 @@ class WebClipperComponent extends React.Component {
 			const webContents = this.webview_.getWebContents();
 			webContents.executeJavaScript('console.log("executeJavascript ok __dirname=' +
 				__dirname + '");');
-			/*
-			webContents.executeJavaScript('(function () {' +
-				'function injectScript(src) {' +
-				'var s = document.createElement("script");' +
-				's.setAttribute("src", "file:///work/git/IDE/Joplin/joplin.desktop/ElectronClient/" + src);' +
-				'document.body.appendChild(s);}' +
-				'injectScript("content_scripts/JSDOMParser.js");' +
-				'injectScript("content_scripts/Readability.js");' +
-				'injectScript("content_scripts/index.js");' +
-				'})();'
-			);
-			*/
 		});
 	}
 
@@ -162,18 +148,14 @@ class WebClipperComponent extends React.Component {
 				return;
 			}
 
-			const imageUrls = markdownUtils.extractImageUrls(newBody);
-
-			console.log('clipHtml (' + this.props.noteId + '): Downloading images: ', imageUrls);
-
-			let result = await api.downloadImages_(imageUrls);
-
-			console.log('clipHtml (' + this.props.noteId + '): Creating resources from paths: ', result);
-
-			result = await api.createResourcesFromPaths_(result);
-			await api.removeTempFiles_(result);
-			newNote.body = api.replaceImageUrlsByResources_(newBody, result, newNote.image_sizes);
-			this.props.updateMdClipping(newNote);
+			const response = await api.route('POST', '/notes' + (this.props.newNote ? '' : '/' + this.props.noteId), {token: api.token}, JSON.stringify({
+				title: newNote.title,
+				body: newBody,
+				source_url: newNote.source_url,
+				image_sizes: newNote.image_sizes,
+				parent_id: this.props.folderId,
+			}));
+			this.props.updateMdClipping(response);
 		} else if (msg === "log") {
 			console.log(...args);
 		} else if (msg.indexOf('#') === 0) {
@@ -216,6 +198,7 @@ class WebClipperComponent extends React.Component {
 const mapStateToProps = (state) => {
 	return {
 		noteId: state.selectedNoteIds.length === 1 ? state.selectedNoteIds[0] : null,
+		folderId: state.selectedFolderId,
 		newNote: state.newNote,
 		theme: state.settings.theme,
 	};

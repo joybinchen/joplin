@@ -716,7 +716,7 @@ class NoteTextComponent extends React.Component {
 	}
 
 	setViewerPercentScroll(p) {
-		this.webview_.send('setPercentScroll', p);
+		if (this.webview_) this.webview_.send('setPercentScroll', p);
 	}
 
 	editor_scroll() {
@@ -1581,8 +1581,10 @@ class NoteTextComponent extends React.Component {
 
 			const htmlHasChanged = this.lastSetHtml_ !== html;
 			 if (htmlHasChanged) {
-				let options = {codeTheme: theme.codeThemeCss};
-				this.webview_.send('setHtml', html, options);
+				if (this.lastSetHtml_) {
+					let options = {codeTheme: theme.codeThemeCss};
+					this.webview_.send('setHtml', html, options);
+				}
 				this.lastSetHtml_ = html;
 			}
 
@@ -1646,18 +1648,12 @@ class NoteTextComponent extends React.Component {
 			src={isUri(note.body) ? note.body : note.title}
 			updateMdClipping={(note) => {
 				if (note.source_url === 'about:blank') return;
-				const newNote = Object.assign({}, this.state.note);
+				const newNote = Object.assign({}, this.state.note, note);
 				newNote.body = note.source_url === clippingHref ? note.body
 					: ('[origin_url](' + clippingHref + ')\n' + note.body);
-				newNote.title = note.title;
-				newNote.source_url = note.source_url;
-				this.setState({
-					note: newNote,
-				})
-				this.scheduleSave();
-				this.updateHtml(newNote.body);
-			}
-			}
+				this.setState({ note: newNote, newAndNoTitleChangeNoteId: null });
+				this.scheduleHtmlUpdate();
+			}}
 		/>
 		const viewer =  <webview
 			style={viewerStyle}
