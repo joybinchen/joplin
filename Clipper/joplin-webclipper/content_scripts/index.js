@@ -125,9 +125,13 @@
 
 		} else if (command.name === "selectedHtml") {
 
-		    const range = window.getSelection().getRangeAt(0);
+			const selection = window.getSelection();
+			const rangeCount = selection.rangeCount;
 		    const container = document.createElement('div');
-		    container.appendChild(range.cloneContents());
+			for (var i = 0; i < rangeCount; ++i) {
+				const range = selection.getRangeAt(i);
+				container.appendChild(range.cloneContents());
+			}
 		    return clippedContentResponse(pageTitle(), container.innerHTML, getImageSizes(document));
 
 		} else if (command.name === 'screenshot') {
