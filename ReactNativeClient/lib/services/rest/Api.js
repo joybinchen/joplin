@@ -347,6 +347,7 @@ class Api {
 
 			const saveOptions = {};
 			if (note.id) saveOptions.isNew = true;
+			if (id) note.id = id;
 			note = await Note.save(note, saveOptions);
 
 			if (requestNote.tags) {
