@@ -82,7 +82,7 @@ class MdToHtml {
 		if (options.onResourceLoaded) {
 			const resources = this.loadedResources_;
 			for (let id in resources) {
-				if (Object.getOwnPropertyNames(resources[id]).length !== 0) return;
+				if (!resources[id].id) return;
 			}
 			options.onResourceLoaded();
 		}
