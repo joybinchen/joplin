@@ -127,6 +127,10 @@
 
 			const selection = window.getSelection();
 			const rangeCount = selection.rangeCount;
+			if (rangeCount <= 0) {
+				const newCommand = Object.assign({}, command, { name: 'simplifiedPageHtml' });
+				return prepareCommandResponse(newCommand);
+			}
 		    const container = document.createElement('div');
 			for (var i = 0; i < rangeCount; ++i) {
 				const range = selection.getRangeAt(i);

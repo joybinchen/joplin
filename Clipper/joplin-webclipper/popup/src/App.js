@@ -213,6 +213,8 @@ class AppComponent extends Component {
 					<a className={"Confirm Button"} onClick={this.confirm_click}>Confirm</a>
 				</div>
 			);
+		} else {
+			this.clipSelection_click();
 		}
 
 		const clipperStatusComp = () => {
