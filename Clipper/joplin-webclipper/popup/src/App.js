@@ -210,7 +210,6 @@ class AppComponent extends Component {
 					<div className={"BodyWrapper"}>
 						<div className={"Body"} dangerouslySetInnerHTML={{__html: content.body_html}}></div>
 					</div>
-					<a className={"Confirm Button"} onClick={this.confirm_click}>Confirm</a>
 				</div>
 			);
 		} else {
@@ -241,8 +240,15 @@ class AppComponent extends Component {
 
 			msg = "Service status: " + msg
 			const clipperServer = this.props.clipperServer.port;
-			const portInput = <input class="ClipperServer" value={ clipperServer } onChange={ this.clipperServer_change } />
-			return <div className="StatusBar"><img alt={foundState} className="Led" src={led}/><span className="ServerStatus">{ msg }{ helpLink }</span>{ portInput }</div>
+			const statusBar = (
+				<div className="StatusBar">
+					<img alt={foundState} className="Led" src={led}/>
+					<span className="ServerStatus">{ msg }{ helpLink }</span>
+					<input className={"ClipperServer"} value={ clipperServer } onChange={ this.clipperServer_change } />
+					<a className={"Confirm Button"} onClick={this.confirm_click}>Confirm</a>
+				</div>
+			)
+			return statusBar;
 		}
 
 		const foldersComp = () => {

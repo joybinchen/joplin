@@ -124,6 +124,7 @@ class Bridge {
 			startPort: Number(servicePort.split(':').pop()) || defaultPort ,
 			offset: -1,
 		}
+		this.dispatch({ type: 'CLIPPER_SERVER_SET', port: servicePort, });
 		console.info('Popup: Restoring saved clipper server state:', s, state);
 		return state;
 	}

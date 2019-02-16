@@ -1,6 +1,6 @@
 .App {
-	width: 400px;
-	height: 600px;
+	width: 340px;
+	height: 570px;
 	overflow-x: hidden;
 	overflow-y: hidden;
 	display: flex;
@@ -43,12 +43,12 @@
 
 .App .Controls li {
 	flex: 1;
-	margin: 0 3px;
+	margin: 0 1px;
 }
 
 .App a.Button {
 	background-color: #0269c2;
-	padding: 0 14px;
+	padding: 0 4px;
 	display: flex;
 	flex: 1;
 	color: #eee;
@@ -82,6 +82,7 @@
 .App .Preview .Title {
 	flex: 0;
 	margin-bottom: 10px;
+	color: #5A95C7;
 }
 
 .App .Preview .BodyWrapper {
@@ -102,7 +103,8 @@
 }
 
 .App .Preview .Confirm {
-	flex: 0;
+	display: flex;
+	flex: 1;
 }
 
 .App .Folders,
@@ -144,7 +146,7 @@
 	flex-direction: 'row';
 	align-items: center;
 	min-height: 20px;
-	padding-top: 5px;
+	padding-top: 9px;
 }
 
 .App .StatusBar .Led {
@@ -156,7 +158,7 @@
 
 .App .StatusBar .ServerStatus {
 	display: flex;
-	flex: 1;
+	flex: 4;
 	margin-left: 5px;
 }
 
@@ -165,7 +167,9 @@
 }
 
 .App .StatusBar .ClipperServer {
-	width: 8em;
-	height: .9em;
+	min-width: 7em;
+	height: 1em;
 	color: #5A95C7;
+	display: flex;
+	flex: 2;
 }
