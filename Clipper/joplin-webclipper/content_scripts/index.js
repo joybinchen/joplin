@@ -127,7 +127,7 @@
 
 			const selection = window.getSelection();
 			const rangeCount = selection.rangeCount;
-			if (rangeCount <= 0) {
+			if (rangeCount <= 0 || selection.type !== 'Range') {
 				const newCommand = Object.assign({}, command, { name: 'simplifiedPageHtml' });
 				return prepareCommandResponse(newCommand);
 			}
