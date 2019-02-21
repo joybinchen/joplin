@@ -554,7 +554,9 @@ class Api {
 			return {name: fileName, path: imagePath, mime: contentType};
 		}
 
-		let fileName = basename(urlParser.parse(url).pathname);
+		if (!urlParser.parse(url).pathname)
+			this.logger().warn('url.pathname empty:', url);
+		let fileName = basename(urlParser.parse(url).pathname||'image.jpg');
 		let fileExt = safeFileExtension(fileExtension(fileName).toLowerCase());
 		let contentType = mimeUtils.fromFileExtension(fileExt);
 		let imagePath = tempDir + '/' + urlHash + '.' + fileExt;
