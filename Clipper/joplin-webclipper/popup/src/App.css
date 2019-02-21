@@ -44,6 +44,7 @@
 .App .Controls li {
 	flex: 1;
 	margin: 0 1px;
+	text-align: center;
 }
 
 .App a.Button {
@@ -56,6 +57,7 @@
 	font-size: .8em;
 	cursor: pointer;
 	align-items: center;
+	text-align: center;
 	min-height: 31px;
 }
 
@@ -102,9 +104,10 @@
 	height: 100%;
 }
 
-.App .Preview .Confirm {
+.App .StatusBar .Confirm {
 	display: flex;
 	flex: 1;
+	font-size: 1em;
 }
 
 .App .Folders,

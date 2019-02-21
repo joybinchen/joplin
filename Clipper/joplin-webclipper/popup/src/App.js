@@ -320,6 +320,7 @@ class AppComponent extends Component {
 						<li><a className="Button" onClick={this.clipScreenshot_click}>screenshot</a></li>
 					</ul>
 				</div>
+				{ clipperStatusComp() }
 				{ foldersComp() }
 				<div className="Tags">
 					<label>Tags:</label>
@@ -330,7 +331,6 @@ class AppComponent extends Component {
 				</div>
 				{ warningComponent }
 				{ previewComponent }
-				{ clipperStatusComp() }
 			</div>
 		);
 	}
