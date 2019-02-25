@@ -314,7 +314,7 @@ class Bridge {
 	}
 
 	async sendContentToJoplin(content) {
-		console.info('Popup: Sending to Joplin...');
+		console.info('Popup: Sending to Joplin...', content);
 
 		try {
 			this.dispatch({ type: 'CONTENT_UPLOAD', operation: { uploading: true } });

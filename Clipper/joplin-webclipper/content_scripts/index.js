@@ -96,8 +96,6 @@
 				html: html,
 				base_url: baseUrl(),
 				url: location.origin + location.pathname + location.search,
-				parent_id: command.parent_id,
-				tags: command.tags || '',
 				image_sizes: imageSizes,
 			};			
 		}
