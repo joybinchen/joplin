@@ -265,8 +265,8 @@ class MainScreenComponent extends React.Component {
 		}
 	}
 
-	styles(themeId, width, height, messageBoxVisible, isSidebarVisible) {
-		const styleKey = themeId + '_' + width + '_' + height + '_' + messageBoxVisible + '_' + (+isSidebarVisible);
+	styles(themeId, width, height, messageBoxVisible, isSidebarVisible, isNoteListVisible) {
+		const styleKey = themeId + '_' + width + '_' + height + '_' + messageBoxVisible + '_' + (+isSidebarVisible) + '_' + (+isNoteListVisible);
 		if (styleKey === this.styleKey_) return this.styles_;
 
 		const theme = themeStyle(themeId);
@@ -291,11 +291,11 @@ class MainScreenComponent extends React.Component {
 		const rowHeight = height - theme.headerHeight - (messageBoxVisible ? this.styles_.messageBox.height : 0);
 
 		this.styles_.sideBar = {
-			width: Math.floor(layoutUtils.size(width * .2, 100, 150)),
+			width: Math.floor(layoutUtils.size(width * .2, 100, 160)),
 			height: rowHeight,
 			display: 'inline-block',
 			verticalAlign: 'top',
-    };
+		};
 
 		if (isSidebarVisible === false) {
 			this.styles_.sideBar.width = 0;
@@ -303,7 +303,7 @@ class MainScreenComponent extends React.Component {
 		}
 
 		this.styles_.noteList = {
-			width: Math.floor(layoutUtils.size(width * .3, 250, 500)),
+			width: isNoteListVisible ? Math.floor(layoutUtils.size(width * .3, 250, 500)) : 0,
 			height: rowHeight,
 			display: 'inline-block',
 			verticalAlign: 'top',
@@ -346,7 +346,8 @@ class MainScreenComponent extends React.Component {
 		const notes = this.props.notes;
 		const messageBoxVisible = this.props.hasDisabledSyncItems || this.props.showMissingMasterKeyMessage;
 		const sidebarVisibility = this.props.sidebarVisibility;
-		const styles = this.styles(this.props.theme, style.width, style.height, messageBoxVisible, sidebarVisibility);
+		const noteListVisibility = this.props.noteVisiblePanes.length < 2;
+		const styles = this.styles(this.props.theme, style.width, style.height, messageBoxVisible, sidebarVisibility, noteListVisibility);
 		const selectedFolderId = this.props.selectedFolderId;
 		const onConflictFolder = this.props.selectedFolderId === Folder.conflictFolderId();
 
@@ -481,7 +482,6 @@ const mapStateToProps = (state) => {
 		hasDisabledSyncItems: state.hasDisabledSyncItems,
 		showMissingMasterKeyMessage: state.notLoadedMasterKeys.length && state.masterKeys.length,
 		selectedFolderId: state.selectedFolderId,
-		sidebarVisibility: state.sidebarVisibility,
 	};
 };
 

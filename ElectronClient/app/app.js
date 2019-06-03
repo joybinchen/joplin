@@ -112,11 +112,11 @@ class Application extends BaseApplication {
 
 					let panes = state.noteVisiblePanes.slice();
 					if (panes.length === 2) {
-						panes = ['editor'];
-					} else if (panes.indexOf('editor') >= 0) {
 						panes = ['viewer'];
-					} else if (panes.indexOf('viewer') >= 0) {
-						panes = ['editor', 'viewer'];
+				//	} else if (panes.indexOf('viewer') >= 0) {
+				//		panes = ['editor'];
+				//	} else if (panes.indexOf('editor') >= 0) {
+				//		panes = ['editor', 'viewer'];
 					} else {
 						panes = ['editor', 'viewer'];
 					}
@@ -724,6 +724,12 @@ class Application extends BaseApplication {
 
 		this.initRedux();
 
+		let reactDevToolsPort = Setting.value('reactDevToolsPort');
+		reg.logger().info('reactDevToolsPort: ' + reactDevToolsPort);
+		if (reactDevToolsPort > 0) {
+			require('react-devtools-core').connectToDevTools({port: reactDevToolsPort});
+		}
+
 		// Since the settings need to be loaded before the store is created, it will never
 		// receive the SETTING_UPDATE_ALL even, which mean state.settings will not be
 		// initialised. So we manually call dispatchUpdateAll() to force an update.
@@ -805,7 +811,7 @@ class Application extends BaseApplication {
 		clipperLogger.addTarget('file', { path: Setting.value('profileDir') + '/log-clipper.txt' });
 		clipperLogger.addTarget('console');
 
-		ClipperServer.instance().setLogger(clipperLogger);
+		ClipperServer.instance().setLogger(reg.logger());
 		ClipperServer.instance().setDispatch(this.store().dispatch);
 
 		if (Setting.value('clipperServer.autoStart')) {
