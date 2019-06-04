@@ -156,6 +156,16 @@ class BaseApplication {
 				continue;
 			}
 
+			if (arg.indexOf('--remote-debugging-port') === 0) {
+				let debugPort = parseInt(arg.slice(arg.indexOf('=') + 1));
+				if (!(debugPort > 0)) {
+					debugPort = 8097;
+				}
+				Setting.setConstant('reactDevToolsPort', debugPort);
+				argv.splice(0, 1);
+				continue;
+			}
+
 			if (arg.length && arg[0] == '-') {
 				throw new JoplinError(_('Unknown flag: %s', arg), 'flagError');
 			} else {

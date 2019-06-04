@@ -71,7 +71,8 @@
     "babel-cli": "^6.26.0",
     "babel-preset-react": "^6.24.1",
     "electron": "^1.8.7",
-    "electron-builder": "20.14.7"
+    "electron-builder": "20.14.7",
+    "electron-react-devtools": "^0.5.3"
   },
   "optionalDependencies": {
     "7zip-bin-linux": "^1.0.1",
@@ -117,6 +118,7 @@
     "react": "^16.4.0",
     "react-ace": "^6.1.4",
     "react-datetime": "^2.14.0",
+    "react-devtools-core": "^3.6.1",
     "react-dom": "^16.4.0",
     "react-redux": "^5.0.7",
     "read-chunk": "^2.1.0",

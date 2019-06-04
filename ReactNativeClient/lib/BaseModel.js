@@ -152,6 +152,10 @@ class BaseModel {
 			for (let i = 0; i < options.order.length; i++) {
 				const o = options.order[i];
 				let item = o.by;
+				if (!item) {
+					this.logger().error('applySqlOptions undefined', sql, o);
+					continue;
+				}
 				if (options.caseInsensitive === true) item += ' COLLATE NOCASE';
 				if (o.dir) item += ' ' + o.dir;
 				items.push(item);

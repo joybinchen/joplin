@@ -562,6 +562,7 @@ Setting.constants_ = {
 	profileDir: '',
 	tempDir: '',
 	openDevTools: false,
+	reactDevToolsPort: 0,
 }
 
 Setting.autoSaveEnabled = true;
